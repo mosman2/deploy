@@ -1,0 +1,8 @@
+# Ignore environment variables
+.env
+
+# Ignore repository folder
+example_data/test_repo/
+
+# Ignore virtual environment
+myenv/
