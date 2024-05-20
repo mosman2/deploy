@@ -5,8 +5,8 @@
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/yourproject.git
-   cd yourproject
+   git clone https://github.com/yourusername/deploy.git
+   cd deploy
    ```
 
 2. **Create a virtual environment:**
