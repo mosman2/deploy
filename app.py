@@ -18,6 +18,13 @@ class CategorizedCode(BaseModel):
     inference_code: list[str] = Field(description="List of inference code snippets")
     functions: list[str] = Field(description="List of functions")
 
+# Define the Pydantic model for the expected JSON structure
+class DeployableScript(BaseModel):
+    deployable_script: list[str] = Field(description="Code ready to be deployed")
+    dockerfile: list[str] = Field(description="Dockerfile based on the code to be deployed")
+ 
+
+
 # Inputs
 REPO_URL = "https://github.com/yoonholee/edward2-notebooks"
 REPO_PATH = "./example_data/test_repo"
@@ -89,6 +96,9 @@ def categorize_code(combined_code):
         return parsed_output.dict()
     except Exception as e:
         print(f"Error parsing response: {e}")
+def generate_deployable_script_direct(script_lines):
+    return "\n".join(script_lines)
+
 
 # Function to generate a deployable Python script from the categorized code
 def generate_deployable_script(categorized_code):
@@ -143,6 +153,31 @@ def save_script_to_file(script_content, file_path):
     except Exception as e:
         print(f"Error saving script to file: {e}")
 
+# Function to categorize the combined code directly in one json field
+def categorize_code_direct(combined_code):
+    parser = PydanticOutputParser(pydantic_object=DeployableScript)
+    prompt_template = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Parse and modularize the code and logically separate it into functions with; dependencies, inputs, models and model parameters, inference code such that the model is ready to be deployed. Also write a dockerfile that can be used to deploy this model. Return the output as JSON:\n{format_instructions}"),
+            ("human", "{query}"),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    model = ChatOpenAI(
+        model_name="gpt-4o",
+        openai_api_key=os.getenv('OPENAI_API_KEY'),
+    )
+
+    chain = prompt_template | model | parser
+
+    try:
+        parsed_output = chain.invoke({"query": combined_code})
+        print("Code successfully categorized.")
+        print(parsed_output)
+        return parsed_output.dict()
+    except Exception as e:
+        print(f"Error parsing response: {e}")
+
 # Main function
 def main():
     load_repository_data(REPO_URL, REPO_PATH, BRANCH)
@@ -150,11 +185,14 @@ def main():
     if notebook_content:
         combined_code = extract_and_combine_code_cells(notebook_content)
         if combined_code:
-            categorized_code = categorize_code(combined_code)
+            categorized_code = categorize_code_direct(combined_code)
             if categorized_code:
-                script_content = generate_deployable_script(categorized_code)
+                script_content = generate_deployable_script_direct(categorized_code['deployable_script'])
+                docker_content = generate_deployable_script_direct(categorized_code['dockerfile'])
                 if script_content:
                     save_script_to_file(script_content, "deployable_script.py")
+                if docker_content:
+                    save_script_to_file(docker_content, "Dockerfile")
 
 if __name__ == "__main__":
     main()
