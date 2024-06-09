@@ -11,7 +11,8 @@ USER root
 RUN mkdir -p /var/lib/apt/lists/partial && apt-get clean && apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libhdf5-dev \
-    build-essential
+    build-essential \
+    supervisor
 
 # Upgrade pip
 RUN pip install --upgrade pip
@@ -31,13 +32,20 @@ RUN pip install gevent
 # Copy the model directory
 COPY model_dir/model /opt/ml/model
 
+# Copy the supervisor configuration file
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy the mlflow_test.py script
+COPY mlflow_test.py /opt/mlflow/mlflow_test.py
+
 # Set environment variables for MLflow
 ENV MLFLOW_DISABLE_ENV_CREATION=True
 ENV ENABLE_MLSERVER=False
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 
-# Expose the port that MLflow will run on
+# Expose the ports for MLflow and the UI
 EXPOSE 8000
+EXPOSE 5000
 
-# Entrypoint for the Docker container
-ENTRYPOINT ["mlflow", "models", "serve", "-m", "/opt/ml/model", "-p", "8000", "--host", "0.0.0.0", "--no-conda"]
+# Entry point for the Docker container
+ENTRYPOINT ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
